@@ -8,7 +8,7 @@ API_KEY = os.getenv("API_KEY")
 DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
 
 
-def generate(path:str, model:str=DEFAULT_MODEL) -> str:
+def generate(path:str, model:str) -> str:
     image = encode(path)
 
     client = OpenRouter(
