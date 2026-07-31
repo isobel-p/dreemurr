@@ -4,7 +4,41 @@ import sys
 from pathlib import Path
 import shlex
 import shutil
+import tempfile
+import os
 from dreemurr.core import generate, DEFAULT_MODEL
+
+def gum_generate(path:str, model:str) -> str:
+    if shutil.which("gum") is None:
+        click.echo("Warning: Gum not installed.")
+        click.echo("Generating name...")
+        return generate(file, model=model)
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tmp:
+        tmp_path = tmp.name
+    try: 
+        code = (
+            "import sys; "
+            "from dreemurr.core import generate; "
+            "sys.stdout.write(generate(sys.argv[1], model=sys.argv[2]))"
+            )
+        cmd = [
+            "gum", "spin",
+            "--title", "Generating name...",
+            "--",
+            sys.executable, "-c", code,
+            path, model
+        ]
+        result = subprocess.run(cmd)
+
+        if result.returncode != 0:
+            raise RuntimeError("AI name generation failed :(")
+        
+        with open(tmp_path, "r") as f:
+            return f.read().strip()
+    finally:
+        os.unlink(tmp_path)
+    
+    return result.stdout.strip()
 
 def gum_confirm(msg:str) -> bool: # using gum :3
     if shutil.which("gum") is None:
@@ -27,7 +61,7 @@ def rename(file:Path, model:str, confirm:bool):
 
 
     try:
-        new = generate(str(file), model=model)
+        new = gum_generate(str(file), model)
         new += file.suffix
         new_path = file.parent / new
 
