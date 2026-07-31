@@ -16,3 +16,9 @@ def encode(path, max_size=1024) -> str:
         buffer = BytesIO()
         img.save(buffer, format="JPEG")
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+def sanitise(name:str) -> str:
+    clean = re.sub(r'[^\w\-_. ]', '', name)
+    clean = clean.replace(" ", "_")
+    clean = re.sub(r'_+', '_', clean)
+    return clean.strip("_")
