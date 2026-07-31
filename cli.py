@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import os
 from dreemurr.core import generate, DEFAULT_MODEL
+from dreemurr.utils import unique
 
 def gum_generate(path:str, model:str) -> str:
     if shutil.which("gum") is None:
@@ -51,15 +52,7 @@ def gum_confirm(msg:str) -> bool: # using gum :3
         click.echo("Warning: Gum not installed.")
         return click.confirm(msg)
 
-
-@click.command
-@click.argument("file", type=click.Path(exists=True, path_type=Path))
-@click.option("--model", default=DEFAULT_MODEL, help="Model to use for generating names as an OpenRouter Model ID.")
-@click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
-def rename(file:Path, model:str, confirm:bool):
-    # for i in folder:
-
-
+def rename(file:Path, model:str, confirm:bool) -> bool:
     try:
         new = gum_generate(str(file), model)
         new += file.suffix
@@ -76,5 +69,27 @@ def rename(file:Path, model:str, confirm:bool):
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
+@click.command()
+@click.argument("file", type=click.Path(exists=True, path_type=Path), required=False)
+@click.option("--model", default=DEFAULT_MODEL, help="Model to use for generating names as an OpenRouter Model ID.")
+@click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
+def single(file:Path, model:str, confirm:bool):
+    if file is None:
+        if shutil.which("gum") is None:
+            click.echo("Warning: Gum not installed.")
+            click.echo("Please install Gum or provide a file path.")
+            sys.exit(1)
+        click.echo("")
+        result = subprocess.run(["gum", "file", str(Path.home())], stdout=subprocess.PIPE, text=True)
+        if result.returncode != 0 or not result.stdout.strip():
+            sys.exit(1)
+        file_path = result.stdout.strip()
+        file = Path(file_path)
+        if not file.exists():
+            click.echo("File does not exist", err=True)
+            sys.exit(1)
+        
+    rename(file, model, confirm)
+
 if __name__ == "__main__":
-    rename()
+    single()
