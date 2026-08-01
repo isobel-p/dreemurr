@@ -64,6 +64,7 @@ def rename(file:Path, model:str, confirm:bool) -> bool:
         new = sanitise(new)
         new += file.suffix
         new_path = file.parent / new
+        new_path = unique(new_path)
 
         if confirm and gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
             file.rename(new_path)
@@ -76,11 +77,36 @@ def rename(file:Path, model:str, confirm:bool) -> bool:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-@click.command()
+def copy(file:Path, model:str, confirm:bool) -> bool:
+    # copy one file
+    try:
+        new = gum_generate(str(file), model)
+        new = sanitise(new)
+        new += file.suffix
+        new_path = file.parent / new
+        new_path = unique(new_path)
+
+        if confirm and gum_confirm(f"Will copy {file.name} to {new_path.name}. Proceed?"):
+            shutil.copy2(file, new_path)
+            click.echo(f"Copied {file.name} to {new_path.name}.")
+        elif not confirm:
+            shutil.copy2(file, new_path)
+            click.echo(f"Copied {file.name} to {new_path.name}.")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path), required=False)
 @click.option("--model", default=DEFAULT_MODEL, help="Model to use for generating names as an OpenRouter Model ID.")
 @click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
-def single(file:Path, model:str, confirm:bool):
+@click.option("--copy", help="Create a copy with the new name instead of overwriting the old one.", is_flag=True)
+def single(file:Path, model:str, confirm:bool, copy:bool):
     # use gum file picker to get file name, renames one file at a time
     if file is None:
         if shutil.which("gum") is None:
@@ -95,8 +121,10 @@ def single(file:Path, model:str, confirm:bool):
         if not file.exists():
             click.echo("File does not exist", err=True)
             sys.exit(1)
-        
-    rename(file, model, confirm)
+    if copy:
+        copy(file, model, confirm)
+    else:
+        rename(file, model, confirm)
 
 if __name__ == "__main__":
     single()
