@@ -7,39 +7,42 @@ import shutil
 import tempfile
 import os
 from dreemurr.core import generate, DEFAULT_MODEL
-from dreemurr.utils import unique
+from dreemurr.utils import sanitise, unique
 
 def gum_generate(path:str, model:str) -> str:
     if shutil.which("gum") is None:
         click.echo("Warning: Gum not installed.")
         click.echo("Generating name...")
-        return generate(file, model=model)
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tmp:
-        tmp_path = tmp.name
-    try: 
-        code = (
-            "import sys; "
-            "from dreemurr.core import generate; "
-            "sys.stdout.write(generate(sys.argv[1], model=sys.argv[2]))"
-            )
-        cmd = [
-            "gum", "spin",
-            "--title", "Generating name...",
-            "--",
-            sys.executable, "-c", code,
-            path, model
-        ]
+        return generate(path, model=model)
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as result:
+        result_path = result.name
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as script:
+        script_path = script.name
+        script.write(f"""
+import sys
+import os
+import click
+sys.path.insert(0, os.getcwd())
+from dreemurr.core import generate
+with open({repr(result_path)}, 'w') as f:
+    f.write(generate(sys.argv[1], model=sys.argv[2]))
+        """)
+    try:
+        cmd = ["gum", "spin", "--title", "Generating name...", "--", sys.executable, script_path, path, model]
         result = subprocess.run(cmd)
-
         if result.returncode != 0:
             raise RuntimeError("AI name generation failed :(")
-        
-        with open(tmp_path, "r") as f:
-            return f.read().strip()
+        with open(result_path, "r") as f:
+            name = f.read().strip()
+            if not name:
+                from datetime import datetime
+                name = f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_dreemurr"
+                click.echo("AI returned empty string. Using fallback.")
+            return name
     finally:
-        os.unlink(tmp_path)
-    
-    return result.stdout.strip()
+        os.unlink(script_path)
+        if os.path.exists(result_path):
+            os.unlink(result_path)
 
 def gum_confirm(msg:str) -> bool: # using gum :3
     if shutil.which("gum") is None:
@@ -55,15 +58,16 @@ def gum_confirm(msg:str) -> bool: # using gum :3
 def rename(file:Path, model:str, confirm:bool) -> bool:
     try:
         new = gum_generate(str(file), model)
+        new = sanitise(new)
         new += file.suffix
         new_path = file.parent / new
 
-        if confirm and gum_confirm(f"Will rename {file.name} to {new_path}. Proceed?"):
+        if confirm and gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
             file.rename(new_path)
-            click.echo(f"Renamed {file.name} to {new_path}.")
+            click.echo(f"Renamed {file.name} to {new_path.name}.")
         elif not confirm:
             file.rename(new_path)
-            click.echo(f"Renamed {file.name} to {new_path}.")
+            click.echo(f"Renamed {file.name} to {new_path.name}.")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -79,7 +83,6 @@ def single(file:Path, model:str, confirm:bool):
             click.echo("Warning: Gum not installed.")
             click.echo("Please install Gum or provide a file path.")
             sys.exit(1)
-        click.echo("")
         result = subprocess.run(["gum", "file", str(Path.home())], stdout=subprocess.PIPE, text=True)
         if result.returncode != 0 or not result.stdout.strip():
             sys.exit(1)
