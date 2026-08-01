@@ -10,6 +10,7 @@ from dreemurr.core import generate, DEFAULT_MODEL
 from dreemurr.utils import sanitise, unique
 
 def gum_generate(path:str, model:str) -> str:
+    # handles gum spinner for generate function
     if shutil.which("gum") is None:
         click.echo("Warning: Gum not installed.")
         click.echo("Generating name...")
@@ -31,7 +32,7 @@ with open({repr(result_path)}, 'w') as f:
         cmd = ["gum", "spin", "--title", "Generating name...", "--", sys.executable, script_path, path, model]
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            raise RuntimeError("AI name generation failed :(")
+            raise RuntimeError(f"code {result.returncode}")
         with open(result_path, "r") as f:
             name = f.read().strip()
             if not name:
@@ -44,7 +45,8 @@ with open({repr(result_path)}, 'w') as f:
         if os.path.exists(result_path):
             os.unlink(result_path)
 
-def gum_confirm(msg:str) -> bool: # using gum :3
+def gum_confirm(msg:str) -> bool:
+    # handles gum confirm message when --confirm flag is used
     if shutil.which("gum") is None:
         click.echo("Warning: Gum not installed.")
         return click.confirm(msg)
@@ -56,6 +58,7 @@ def gum_confirm(msg:str) -> bool: # using gum :3
         return click.confirm(msg)
 
 def rename(file:Path, model:str, confirm:bool) -> bool:
+    # rename one file
     try:
         new = gum_generate(str(file), model)
         new = sanitise(new)
@@ -78,6 +81,7 @@ def rename(file:Path, model:str, confirm:bool) -> bool:
 @click.option("--model", default=DEFAULT_MODEL, help="Model to use for generating names as an OpenRouter Model ID.")
 @click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
 def single(file:Path, model:str, confirm:bool):
+    # use gum file picker to get file name, renames one file at a time
     if file is None:
         if shutil.which("gum") is None:
             click.echo("Warning: Gum not installed.")
