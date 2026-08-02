@@ -3,8 +3,10 @@ import base64
 from io import BytesIO
 from pathlib import Path
 import re
+from textwrap import shorten
 
 def encode(path, max_size=1024) -> str:
+    # note: saves as jpeg!
     with Image.open(path) as img:
         if img.mode in ("RGBA", "LA", "P"):
             img = img.convert("RGB")
@@ -25,6 +27,7 @@ def sanitise(name:str) -> str:
     clean = re.sub(r'[^\w\-_. ]', '', name)
     clean = clean.replace(" ", "_")
     clean = re.sub(r'_+', '_', clean)
+    clean = shorten(clean, width=105, placeholder="[...]")
     return clean.strip("_")
 
 def unique(file:Path):
