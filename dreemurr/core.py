@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
-prompt = ""
+PROMPT = "You are an AI assistant that generates descriptive filenames for images. Output ONLY the filename, 3-5 words, lowercase, underscores_between_words. No extra text, no quotes, no markdown."
 
 def generate(path:str, model:str) -> str:
     image = encode(path)
@@ -16,15 +16,11 @@ def generate(path:str, model:str) -> str:
         server_url="https://ai.hackclub.com/proxy/v1", # TODO make this configurable via config file
     )
 
-    if "prompt" not in globals():
-        with open("prompt.txt") as f:
-            prompt = f.read()
-            
     try:
         response = client.chat.send(
             model=model,
             messages=[
-                {"role": "system", "content": prompt},
+                {"role": "system", "content": PROMPT},
                 {"role": "user", "content": [
                     {"type": "text", "text": "Generate a filename for this image:"},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}}
@@ -33,5 +29,8 @@ def generate(path:str, model:str) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
+        log_path = Path.home() / ".dreemurr_error.log"
+        with open(log_path, "a") as f:
+            f.write(f"{datetime.now()}: {e}\n")
         from datetime import datetime
         return f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_dreemurr"

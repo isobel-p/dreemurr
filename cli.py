@@ -8,42 +8,7 @@ import tempfile
 import os
 from dreemurr.core import generate, DEFAULT_MODEL
 from dreemurr.utils import sanitise, unique
-
-def gum_generate(path:str, model:str) -> str:
-    # handles gum spinner for generate function
-    if shutil.which("gum") is None:
-        click.echo("Warning: Gum not installed.")
-        click.echo("Generating name...")
-        return generate(path, model=model)
-    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as result:
-        result_path = result.name
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as script:
-        script_path = script.name
-        script.write(f"""
-import sys
-import os
-import click
-sys.path.insert(0, os.getcwd())
-from dreemurr.core import generate
-with open({repr(result_path)}, 'w') as f:
-    f.write(generate(sys.argv[1], model=sys.argv[2]))
-        """)
-    try:
-        cmd = ["gum", "spin", "--title", "Generating name...", "--", sys.executable, script_path, path, model]
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            raise RuntimeError(f"code {result.returncode}")
-        with open(result_path, "r") as f:
-            name = f.read().strip()
-            if not name:
-                from datetime import datetime
-                name = f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_dreemurr"
-                click.echo("AI returned empty string. Using fallback.")
-            return name
-    finally:
-        os.unlink(script_path)
-        if os.path.exists(result_path):
-            os.unlink(result_path)
+from yaspin import yaspin
 
 def gum_confirm(msg:str) -> bool:
     # handles gum confirm message when --confirm flag is used
@@ -60,8 +25,9 @@ def gum_confirm(msg:str) -> bool:
 def rename(file:Path, model:str, confirm:bool) -> bool:
     # rename one file
     try:
-        new = gum_generate(str(file), model)
-        new = sanitise(new)
+        with yaspin(text="Generating name...") as spinner:
+            new = sanitise(generate(str(file), model=model))
+            spinner.ok()
         new += file.suffix
         new_path = file.parent / new
         new_path = unique(new_path)
@@ -80,8 +46,9 @@ def rename(file:Path, model:str, confirm:bool) -> bool:
 def copy(file:Path, model:str, confirm:bool) -> bool:
     # copy one file
     try:
-        new = gum_generate(str(file), model)
-        new = sanitise(new)
+        with yaspin(text="Generating name...") as spinner:
+            new = sanitise(generate(str(file), model=model))
+            spinner.ok()
         new += file.suffix
         new_path = file.parent / new
         new_path = unique(new_path)
