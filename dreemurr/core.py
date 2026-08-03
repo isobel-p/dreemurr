@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
-PROMPT = "You are an AI assistant that generates descriptive filenames for images. Output ONLY the filename, 3-5 words, lowercase, underscores_between_words. No extra text, no quotes, no markdown."
+PROMPT = "You are an AI assistant that generates descriptive filenames for images. Output ONLY the filename, 3-5 words, lowercase, underscores_between_words. No extra text, no quotes, no markdown. Be as detailed as possible."
 
 def generate(path:str, model:str) -> str:
     image = encode(path)
@@ -27,7 +27,10 @@ def generate(path:str, model:str) -> str:
                 ]}
             ],
         )
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+        if not result or not result.strip():
+            raise ValueError("Empty AI response")
+        return result
     except Exception as e:
         log_path = Path.home() / ".dreemurr_error.log"
         with open(log_path, "a") as f:

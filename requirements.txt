@@ -4,3 +4,4 @@ openrouter
 dotenv
 pathlib
 yaspin
+tqdm
