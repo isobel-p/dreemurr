@@ -2,6 +2,8 @@ from dreemurr.utils import encode
 import os
 from openrouter import OpenRouter
 from dotenv import load_dotenv
+from pathlib import Path
+from datetime import datetime
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
@@ -35,5 +37,4 @@ def generate(path:str, model:str) -> str:
         log_path = Path.home() / ".dreemurr_error.log"
         with open(log_path, "a") as f:
             f.write(f"{datetime.now()}: {e}\n")
-        from datetime import datetime
         return f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_dreemurr"

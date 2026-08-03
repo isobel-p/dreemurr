@@ -19,48 +19,6 @@ def gum_confirm(msg:str) -> bool:
     except FileNotFoundError:
         return click.confirm(msg)
 
-def rename(file:Path, model:str, confirm:bool):
-    # rename one file
-    try:
-        with yaspin(text="Generating name...") as spinner:
-            new = sanitise(generate(str(file), model=model))
-            spinner.ok("✓")
-        new += file.suffix
-        new_path = file.parent / new
-        new_path = unique(new_path)
-
-        if confirm and gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
-            file.rename(new_path)
-            click.echo(f"Renamed {file.name} to {new_path.name}.")
-        elif not confirm:
-            file.rename(new_path)
-            click.echo(f"Renamed {file.name} to {new_path.name}.")
-    except UnidentifiedImageError:
-        click.echo("Not a valid image, skipping.")
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-
-def copy(file:Path, model:str, confirm:bool):
-    # copy one file
-    try:
-        with yaspin(text="Generating name...") as spinner:
-            new = sanitise(generate(str(file), model=model))
-            spinner.ok("✓")
-        new += file.suffix
-        new_path = file.parent / new
-        new_path = unique(new_path)
-
-        if confirm and gum_confirm(f"Will copy {file.name} to {new_path.name}. Proceed?"):
-            shutil.copy2(file, new_path)
-            click.echo(f"Copied {file.name} to {new_path.name}.")
-        elif not confirm:
-            shutil.copy2(file, new_path)
-            click.echo(f"Copied {file.name} to {new_path.name}.")
-    except UnidentifiedImageError:
-        click.echo("Not a valid image, skipping.")
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-
 @click.group()
 def cli():
     pass
@@ -76,7 +34,7 @@ def single(file:Path, model:str, confirm:bool, copy:bool):
         click.echo("Warning: Gum not installed.")
     if file is None:
         if shutil.which("gum") is None:
-            click.echo("Please install Gum or provide a file path.", err=True)
+            click.echo("Please install Gum or provide sa file path.", err=True)
         result = subprocess.run(["gum", "file", str(Path.home())], stdout=subprocess.PIPE, text=True)
         file_path = result.stdout.strip()
         if result.returncode != 0 or not file_path:
@@ -84,17 +42,31 @@ def single(file:Path, model:str, confirm:bool, copy:bool):
         file = Path(file_path)
         if not file.exists():
             click.echo("File does not exist", err=True)
-    if copy:
-        copy(file, model, confirm)
-    else:
-        rename(file, model, confirm)
+    try:
+        with yaspin(text="Generating name...") as spinner:
+            new = sanitise(generate(str(file), model=model))
+            spinner.ok("✓")
+        new += file.suffix
+        new_path = file.parent / new
+        new_path = unique(new_path)
+
+        if not confirm or gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
+            if copy:
+                shutil.copy2(file, new_path)
+            else:
+                file.rename(new_path)
+            click.echo(f"Renamed {file.name} to {new_path.name}.")
+    except UnidentifiedImageError:
+        click.echo("Not a valid image, skipping.")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
 
 @cli.command()
 @click.argument("folder", type=click.Path(exists=True, path_type=Path), required=False)
 @click.option("--model", default=DEFAULT_MODEL, help="Model to use for generating names as an OpenRouter Model ID.")
 @click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
 @click.option("--copy", help="Create a copy with the new name instead of overwriting the old one.", is_flag=True)
-@click.option("--recursive", help="Recursively download all files in a folder.", is_flag=True)
+@click.option("--recursive", help="Recursively renames all files in a folder.", is_flag=True)
 def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
     # use gum file picker to get file name, renames one file at a time
     if shutil.which("gum") is None:
@@ -110,25 +82,36 @@ def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
         if not folder.exists():
             click.echo("Folder does not exist", err=True)
     pattern = "**/*" if recursive else "*"
+    if not folder.is_dir():
+        click.echo("Error: Batch requires a directory, not a file.", err=True)
     files = list(folder.glob(pattern))
-    
     if not files:
         click.echo("No valid images found.", err=True)
-
     if confirm and not gum_confirm(f"Will rename {len(files)} in {folder}. Proceed?"):
         click.echo("Aborted. No files were changed.")
-        sys.exit("0")
-    
+        sys.exit(0)
     success = 0
     failed = 0
     with tqdm(total=len(files), desc="Processing", unit="img") as pbar:
         for file in files:
             try:
+                new = sanitise(generate(str(file), model=model))
+                new += file.suffix
+                new_path = file.parent / new
+                new_path = unique(new_path)
+
+                # if not confirm or gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
+                #     if copy:
+                #         shutil.copy2(file, new_path)
+                #     else:
+                #         file.rename(new_path)
                 if copy:
-                    copy(file, model, confirm)
+                    shutil.copy2(file, new_path)
                 else:
-                    rename(file, model, confirm)
+                    file.rename(new_path)
                 success += 1
+            except UnidentifiedImageError:
+                click.echo("Not a valid image, skipping.")
             except Exception as e:
                 click.echo(f"Error on {file.name}: {e}")
                 failed += 1
