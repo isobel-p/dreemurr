@@ -30,7 +30,7 @@ def sanitise(name:str) -> str:
     clean = shorten(clean, width=105, placeholder="[...]")
     return clean.strip("_")
 
-def unique(file:Path):
+def unique(file:Path) -> Path:
     if not file.exists():
         return file
     stem = file.stem

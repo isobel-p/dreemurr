@@ -3,21 +3,11 @@ import subprocess
 import sys
 from pathlib import Path
 import shutil
-from dreemurr.core import generate, DEFAULT_MODEL
+from dreemurr.core import generate, DEFAULT_MODEL, API_KEY
 from dreemurr.utils import sanitise, unique
 from yaspin import yaspin
 from PIL import UnidentifiedImageError
 from tqdm import tqdm
-
-def gum_confirm(msg:str) -> bool:
-    # handles gum confirm message when --confirm flag is used
-    if shutil.which("gum") is None:
-        return click.confirm(msg)
-    try:
-        result = subprocess.run(["gum", "confirm", msg])
-        return result.returncode==0
-    except FileNotFoundError:
-        return click.confirm(msg)
 
 @click.group()
 def cli():
@@ -29,12 +19,24 @@ def cli():
 @click.option("--confirm", help="Confirm changes before writing.", is_flag=True)
 @click.option("--copy", help="Create a copy with the new name instead of overwriting the old one.", is_flag=True)
 def single(file:Path, model:str, confirm:bool, copy:bool):
-    # use gum file picker to get file name, renames one file at a time
+    is_gum = True
     if shutil.which("gum") is None:
         click.echo("Warning: Gum not installed.")
+        is_gum = False
+    if API_KEY is None:
+        click.echo("Warning: API key not found. Please use an OpenRouter API key!")
+        if is_gum:
+            new_key = subprocess.run(["gum", "input", "--placeholder", "Enter your API key..."], stdout=subprocess.PIPE, text=True)
+            new_key = new_key.stdout.strip()
+        else:
+            new_key = click.prompt("Enter your API key: ", type=str)
+        with open("dreemurr/.env", "w") as f:
+            f.write(f"API_KEY={new_key}")
+        click.echo("API key set successfully. Restart Dreemurr to use the new key.")
+        sys.exit(1)
     if file is None:
-        if shutil.which("gum") is None:
-            click.echo("Please install Gum or provide sa file path.", err=True)
+        if not is_gum:
+            click.echo("Please install Gum or provide a file path.", err=True)
         result = subprocess.run(["gum", "file", str(Path.home())], stdout=subprocess.PIPE, text=True)
         file_path = result.stdout.strip()
         if result.returncode != 0 or not file_path:
@@ -49,8 +51,18 @@ def single(file:Path, model:str, confirm:bool, copy:bool):
         new += file.suffix
         new_path = file.parent / new
         new_path = unique(new_path)
-
-        if not confirm or gum_confirm(f"Will rename {file.name} to {new_path.name}. Proceed?"):
+        if confirm:
+            if not is_gum:
+                confirmed = click.confirm(f"Will rename {file.name} to {new_path.name}. Proceed?")
+            else:
+                try:
+                    result = subprocess.run(["gum", "confirm", f"Will rename {file.name} to {new_path.name}. Proceed?"])
+                    confirmed = result.returncode==0
+                except FileNotFoundError:
+                    confirmed =  click.confirm(f"Will rename {file.name} to {new_path.name}. Proceed?")
+        else:
+            confirmed = True
+        if confirmed:
             if copy:
                 shutil.copy2(file, new_path)
             else:
@@ -68,11 +80,23 @@ def single(file:Path, model:str, confirm:bool, copy:bool):
 @click.option("--copy", help="Create a copy with the new name instead of overwriting the old one.", is_flag=True)
 @click.option("--recursive", help="Recursively renames all files in a folder.", is_flag=True)
 def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
-    # use gum file picker to get file name, renames one file at a time
+    is_gum = True
     if shutil.which("gum") is None:
         click.echo("Warning: Gum not installed.")
+        is_gum = False
+    if API_KEY is None:
+        click.echo("Warning: API key not found. Please use an OpenRouter API key!")
+        if is_gum:
+            new_key = subprocess.run(["gum", "input", "--placeholder", "Enter your API key..."], stdout=subprocess.PIPE, text=True)
+            new_key = new_key.stdout.strip()
+        else:
+            new_key = click.prompt("Enter your API key: ", type=str)
+        with open("dreemurr/.env", "w") as f:
+            f.write(f"API_KEY={new_key}")
+        click.echo("API key set successfully. Restart Dreemurr to use the new key.")
+        sys.exit(1)
     if folder is None:
-        if shutil.which("gum") is None:
+        if not is_gum:
             click.echo("Please install Gum or provide a file path.", err=True)
         result = subprocess.run(["gum", "file", "--directory", str(Path.home())], stdout=subprocess.PIPE, text=True)
         folder_path = result.stdout.strip()
@@ -109,11 +133,14 @@ def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
                     shutil.copy2(file, new_path)
                 else:
                     file.rename(new_path)
+                tqdm.write(f"Renamed {file.name} to {new_path.name}.")
                 success += 1
             except UnidentifiedImageError:
-                click.echo("Not a valid image, skipping.")
+                tqdm.write("Not a valid image, skipping.")
+            except IsADirectoryError:
+                pass
             except Exception as e:
-                click.echo(f"Error on {file.name}: {e}")
+                tqdm.write(f"Error on {file.name}: {e}")
                 failed += 1
             finally:
                 pbar.update(1)
