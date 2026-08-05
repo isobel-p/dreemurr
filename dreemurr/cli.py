@@ -127,7 +127,7 @@ def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
         sys.exit(1)
     if folder is None:
         if is_gum:
-            result = subprocess.run(["gum", "file", "--directory", str(Path.home())], stdout=subprocess.PIPE, text=True)
+            result = subprocess.run(["gum", "file", "--directory", str(Path.home() / "Pictures")], stdout=subprocess.PIPE, text=True)
             folder_path = result.stdout.strip()
             if result.returncode != 0 or not folder_path:
                 sys.exit(1)
