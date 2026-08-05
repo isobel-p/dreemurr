@@ -5,8 +5,10 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime
 
-load_dotenv()
+dotenv_path = Path.home() / ".config" / "dreemurr" / ".env"
+load_dotenv(dotenv_path=dotenv_path)
 API_KEY = os.getenv("API_KEY")
+SERVER_URL = os.getenv("SERVER_URL")
 DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
 PROMPT = "You are an AI assistant that generates descriptive filenames for images. Output ONLY the filename, 3-5 words, lowercase, underscores_between_words. No extra text, no quotes, no markdown. Be as detailed as possible."
 
@@ -15,7 +17,7 @@ def generate(path:str, model:str) -> str:
 
     client = OpenRouter(
         api_key=API_KEY,
-        server_url="https://ai.hackclub.com/proxy/v1", # TODO make this configurable via config file
+        server_url=SERVER_URL,
     )
 
     try:
@@ -37,4 +39,4 @@ def generate(path:str, model:str) -> str:
         log_path = Path.home() / ".dreemurr_error.log"
         with open(log_path, "a") as f:
             f.write(f"{datetime.now()}: {e}\n")
-        return f"{datetime.now().strftime("%Y%m%d_%H%M%S")}_dreemurr"
+        return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_dreemurr"
