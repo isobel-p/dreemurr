@@ -1,4 +1,8 @@
 .env
 test.py
-dreemurr/__pycache__
 TODO
+__pycache__/
+*.pyc
+dist/
+*.egg-info/
+dreemurr/__pycache__/
