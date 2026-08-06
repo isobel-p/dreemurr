@@ -86,7 +86,7 @@ def single(file:Path, model:str, confirm:bool, copy:bool):
                 file.rename(new_path)
             click.echo(f"Renamed {file.name} to {new_path.name}.")
     except UnidentifiedImageError:
-        click.echo("Not a valid image, skipping.")
+        click.echo(f"{file} not a valid image, skipping.")
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -173,7 +173,7 @@ def batch(folder:Path, model:str, confirm:bool, copy:bool, recursive:bool):
                 tqdm.write(f"Renamed {file.name} to {new_path.name}.")
                 success += 1
             except UnidentifiedImageError:
-                tqdm.write("Not a valid image, skipping.")
+                tqdm.write(f"{file} not a valid image, skipping.")
             except Exception as e:
                 tqdm.write(f"Error on {file.name}: {e}")
                 failed += 1
